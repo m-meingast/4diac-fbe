@@ -1,5 +1,5 @@
 #********************************************************************************
-# Copyright (c) 2018, 2024 OFFIS e.V.
+# Copyright (c) 2018, 2026 OFFIS e.V., Primetals Technologies Austria GmbH
 #
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
@@ -9,6 +9,7 @@
 # 
 # Contributors:
 #    Jörg Walter - initial implementation
+#    Markus Meingast - add support for OPC UA Alarms & Conditions
 # *******************************************************************************/
 #
 
@@ -94,6 +95,22 @@ patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "check_add_cc_flag\\(\"-Werror\"\\)" ""
 patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "check_add_cc_flag\\(\"-Wno-static-in-inline\"\\)" "")
 patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "CMAKE_INTERPROCEDURAL_OPTIMIZATION" "disabled_CMAKE_INTERPROCEDURAL_OPTIMIZATION")
 patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "SANITIZER_FLAGS \"[^\"]*\"" "SANITIZER_FLAGS \"\"")
+
+if (UA_NAMESPACE_ZERO STREQUAL "FULL" OR UA_ENABLE_ALARM_CONDITIONS)
+  set(NODESET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/ua-nodeset")
+  set(NODESET_VERSION "Machinery-1.03.0-2023-08-01")
+  if (NOT EXISTS "${NODESET_DIR}/Schema/Opc.Ua.NodeSet2.xml")
+    message(STATUS "UA_NAMESPACE_ZERO is FULL. Fetching missing UA-Nodeset submodule...")
+    file(REMOVE_RECURSE "${NODESET_DIR}")
+    execute_process(
+      COMMAND git clone -b "${NODESET_VERSION}" https://github.com/OPCFoundation/UA-Nodeset.git "${NODESET_DIR}"
+      RESULT_VARIABLE GIT_CLONE_RESULT
+    )
+    if(NOT GIT_CLONE_RESULT EQUAL "0")
+      message(FATAL_ERROR "Failed to clone UA-Nodeset repository. Open62541 build will fail.")
+    endif()
+  endif()
+endif()
 
 include(${CGET_CMAKE_ORIGINAL_SOURCE_FILE})
 
