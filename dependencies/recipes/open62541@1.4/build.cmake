@@ -1,5 +1,5 @@
 #********************************************************************************
-# Copyright (c) 2018, 2024 OFFIS e.V.
+# Copyright (c) 2018, 2026 OFFIS e.V., Primetals Technologies Austria GmbH
 #
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
@@ -9,6 +9,7 @@
 # 
 # Contributors:
 #    Jörg Walter - initial implementation
+#    Markus Meingast - add support for OPC UA Alarms & Conditions
 # *******************************************************************************/
 #
 
@@ -94,6 +95,41 @@ patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "check_add_cc_flag\\(\"-Werror\"\\)" ""
 patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "check_add_cc_flag\\(\"-Wno-static-in-inline\"\\)" "")
 patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "CMAKE_INTERPROCEDURAL_OPTIMIZATION" "disabled_CMAKE_INTERPROCEDURAL_OPTIMIZATION")
 patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "SANITIZER_FLAGS \"[^\"]*\"" "SANITIZER_FLAGS \"\"")
+
+if (UA_NAMESPACE_ZERO STREQUAL "FULL" OR UA_ENABLE_ALARM_CONDITIONS)
+  set(NODESET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/ua-nodeset")
+  if (NOT EXISTS "${NODESET_DIR}/Schema/Opc.Ua.NodeSet2.xml")
+    message(STATUS "UA_NAMESPACE_ZERO is FULL. Fetching missing UA-Nodeset submodule...")
+    set(NODESET_VERSION "Machinery-1.03.0-2023-08-01") 
+    set(NODESET_ZIP "${CMAKE_CURRENT_BINARY_DIR}/ua-nodeset.zip")
+
+    file(DOWNLOAD 
+      "https://github.com/OPCFoundation/UA-Nodeset/archive/refs/tags/${NODESET_VERSION}.zip"
+      "${NODESET_ZIP}"
+      SHOW_PROGRESS
+      STATUS DOWNLOAD_STATUS
+    )
+    list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
+    if(NOT STATUS_CODE EQUAL 0)
+      list(GET DOWNLOAD_STATUS 1 ERROR_MSG)
+      message(FATAL_ERROR "Failed to download UA-Nodeset ZIP. Error: ${ERROR_MSG}")
+    endif()
+
+    message(STATUS "Extracting UA-Nodeset...")
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E tar xf "${NODESET_ZIP}"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/deps"
+      RESULT_VARIABLE EXTRACT_RESULT
+    )
+
+    if(NOT EXTRACT_RESULT EQUAL 0)
+      message(FATAL_ERROR "Failed to extract UA-Nodeset ZIP.")
+    endif()
+    file(REMOVE_RECURSE "${NODESET_DIR}")
+    file(RENAME "${CMAKE_CURRENT_SOURCE_DIR}/deps/UA-Nodeset-${NODESET_VERSION}" "${NODESET_DIR}")    
+    message(STATUS "Successfully extracted UA-Nodeset to ${NODESET_DIR}")
+  endif()
+endif()
 
 include(${CGET_CMAKE_ORIGINAL_SOURCE_FILE})
 
