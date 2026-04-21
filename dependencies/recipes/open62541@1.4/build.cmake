@@ -98,17 +98,36 @@ patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "SANITIZER_FLAGS \"[^\"]*\"" "SANITIZER
 
 if (UA_NAMESPACE_ZERO STREQUAL "FULL" OR UA_ENABLE_ALARM_CONDITIONS)
   set(NODESET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/ua-nodeset")
-  set(NODESET_VERSION "Machinery-1.03.0-2023-08-01")
   if (NOT EXISTS "${NODESET_DIR}/Schema/Opc.Ua.NodeSet2.xml")
     message(STATUS "UA_NAMESPACE_ZERO is FULL. Fetching missing UA-Nodeset submodule...")
-    file(REMOVE_RECURSE "${NODESET_DIR}")
-    execute_process(
-      COMMAND git clone -b "${NODESET_VERSION}" https://github.com/OPCFoundation/UA-Nodeset.git "${NODESET_DIR}"
-      RESULT_VARIABLE GIT_CLONE_RESULT
+    set(NODESET_VERSION "Machinery-1.03.0-2023-08-01") 
+    set(NODESET_ZIP "${CMAKE_CURRENT_BINARY_DIR}/ua-nodeset.zip")
+
+    file(DOWNLOAD 
+      "https://github.com/OPCFoundation/UA-Nodeset/archive/refs/tags/${NODESET_VERSION}.zip"
+      "${NODESET_ZIP}"
+      SHOW_PROGRESS
+      STATUS DOWNLOAD_STATUS
     )
-    if(NOT GIT_CLONE_RESULT EQUAL "0")
-      message(FATAL_ERROR "Failed to clone UA-Nodeset repository. Open62541 build will fail.")
+    list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
+    if(NOT STATUS_CODE EQUAL 0)
+      list(GET DOWNLOAD_STATUS 1 ERROR_MSG)
+      message(FATAL_ERROR "Failed to download UA-Nodeset ZIP. Error: ${ERROR_MSG}")
     endif()
+
+    message(STATUS "Extracting UA-Nodeset...")
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E tar xf "${NODESET_ZIP}"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/deps"
+      RESULT_VARIABLE EXTRACT_RESULT
+    )
+
+    if(NOT EXTRACT_RESULT EQUAL 0)
+      message(FATAL_ERROR "Failed to extract UA-Nodeset ZIP.")
+    endif()
+    file(REMOVE_RECURSE "${NODESET_DIR}")
+    file(RENAME "${CMAKE_CURRENT_SOURCE_DIR}/deps/UA-Nodeset-${NODESET_VERSION}" "${NODESET_DIR}")    
+    message(STATUS "Successfully extracted UA-Nodeset to ${NODESET_DIR}")
   endif()
 endif()
 
