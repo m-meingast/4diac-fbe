@@ -101,29 +101,23 @@ if (UA_NAMESPACE_ZERO STREQUAL "FULL" OR UA_ENABLE_ALARM_CONDITIONS)
   if (NOT EXISTS "${NODESET_DIR}/Schema/Opc.Ua.NodeSet2.xml")
     message(STATUS "UA_NAMESPACE_ZERO is FULL. Fetching missing UA-Nodeset submodule...")
     set(NODESET_VERSION "Machinery-1.03.0-2023-08-01") 
-    set(NODESET_ZIP "${CMAKE_CURRENT_BINARY_DIR}/ua-nodeset.zip")
+    set(NODESET_HASH "aaa7b0d318772ff99ca45f5b49d91d293670986f6172279dd6cc567b487d8850")
+    set(CACHE_DIR "${TOOLCHAINS_ROOT}/download-cache/sha256-${NODESET_HASH}")
 
-    file(DOWNLOAD 
-      "https://github.com/OPCFoundation/UA-Nodeset/archive/refs/tags/${NODESET_VERSION}.zip"
-      "${NODESET_ZIP}"
-      SHOW_PROGRESS
-      STATUS DOWNLOAD_STATUS
-    )
-    list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
-    if(NOT STATUS_CODE EQUAL 0)
-      list(GET DOWNLOAD_STATUS 1 ERROR_MSG)
-      message(FATAL_ERROR "Failed to download UA-Nodeset ZIP. Error: ${ERROR_MSG}")
-    endif()
+    include(toolchain-utils)
+    message(STATUS "Downloading extra source...")
+    download_extra_source(ua-nodeset ua-nodeset.tar.gz https://github.com/OPCFoundation/UA-Nodeset/archive/refs/tags/${NODESET_VERSION}.tar.gz
+    ${NODESET_HASH})
 
     message(STATUS "Extracting UA-Nodeset...")
     execute_process(
-      COMMAND ${CMAKE_COMMAND} -E tar xf "${NODESET_ZIP}"
+      COMMAND ${CMAKE_COMMAND} -E tar xf "${CACHE_DIR}/ua-nodeset.tar.gz"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/deps"
       RESULT_VARIABLE EXTRACT_RESULT
     )
 
     if(NOT EXTRACT_RESULT EQUAL 0)
-      message(FATAL_ERROR "Failed to extract UA-Nodeset ZIP.")
+      message(FATAL_ERROR "Failed to extract UA-Nodeset!")
     endif()
     file(REMOVE_RECURSE "${NODESET_DIR}")
     file(RENAME "${CMAKE_CURRENT_SOURCE_DIR}/deps/UA-Nodeset-${NODESET_VERSION}" "${NODESET_DIR}")    
