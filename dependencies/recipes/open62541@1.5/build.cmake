@@ -51,37 +51,7 @@ set(UA_ENABLE_ENCRYPTION_OPENSSL ON CACHE BOOL "")
 
 # build system and code fixes
 if (WIN32)
-  # # FIXME: UA_THREAD_LOCAL fails on Win32. FORTE does not need UA threads, disable it
-  # add_definitions("-D_Thread_local=")
-  # add_definitions("-Dthread_local=")
-  # add_definitions("-D__thread=")
   add_definitions("-Wno-error")
-
-  # Windows XP compatibility: replace WSAPoll
-  download_extra_source(poll release-1.5.1.zip 
-    https://github.com/bmc/poll/archive/refs/tags/release-1.5.1.zip
-    51cf2a0133b6a5bf5241557b948d334a41aa58657e19442b93bd7816ab9b303f)
-  file(ARCHIVE_EXTRACT INPUT "${SOURCE_poll}"
-	  DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/include
-	  PATTERNS *.h)
-  file(ARCHIVE_EXTRACT INPUT "${SOURCE_poll}"
-	  DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/arch
-	  PATTERNS *.c *.h)
-  patch(arch/win32/ua_architecture.h "WSAPoll" "poll")
-  patch(arch/win32/ua_architecture.h "POLLRDNORM" "POLLIN")
-  patch(arch/win32/ua_architecture.h "POLLWRNORM" "POLLOUT")
-  patch(arch/win32/ua_architecture.h "\\(LPWSAPOLLFD\\)" "")
-  patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "win32/ua_clock.c" "win32/ua_clock.c \${PROJECT_SOURCE_DIR}/arch/poll-release-1.5.1/poll.c")
-  add_compile_options("SHELL: -include poll-release-1.5.1/poll.h")
-  add_compile_options(-Dpoll=ua_poll_emulation)
-
-  # Windows XP compatibility: force old windows version define
-  patch(arch/win32/ua_architecture.h "_WIN32_WINNT" "_disabled_WIN32_WINNT")
-  add_compile_definitions(_WIN32_WINNT=0x0501)
-  set(UA_ARCHITECTURE "win32" CACHE STRING "")
-
-  file(COPY ${CGET_RECIPE_DIR}/inet_pton.h DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  add_compile_options("SHELL: -include inet_pton.h")
   # win64 mingw somehow mixes up the exception models
   add_compile_options(-fno-exceptions)
 endif()
@@ -98,48 +68,26 @@ patch(${CGET_CMAKE_ORIGINAL_SOURCE_FILE} "SANITIZER_FLAGS \"[^\"]*\"" "SANITIZER
 
 if (UA_NAMESPACE_ZERO STREQUAL "FULL" OR UA_ENABLE_ALARM_CONDITIONS)
   set(NODESET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/ua-nodeset")
-  set(NODESET_VERSION "UA-1.05.06-2025-11-08")
   if (NOT EXISTS "${NODESET_DIR}/Schema/Opc.Ua.NodeSet2.xml")
     message(STATUS "UA_NAMESPACE_ZERO is FULL. Fetching missing UA-Nodeset submodule...")
-    file(REMOVE_RECURSE "${NODESET_DIR}")
-    execute_process(
-      COMMAND git clone -b "${NODESET_VERSION}" https://github.com/OPCFoundation/UA-Nodeset.git "${NODESET_DIR}"
-      RESULT_VARIABLE GIT_CLONE_RESULT
-    )
-    if(NOT GIT_CLONE_RESULT EQUAL "0")
-      message(FATAL_ERROR "Failed to clone UA-Nodeset repository. Open62541 build will fail.")
-    endif()
-  endif()
-endif()
+    set(NODESET_VERSION "UA-1.05.06-2025-11-08") 
+    set(NODESET_HASH "c09ba6f1d6b3b293f068417feb8c3f510eaf2d4cb6468d6569bde628bc61f153")
+    set(CACHE_DIR "${TOOLCHAINS_ROOT}/download-cache/sha256-${NODESET_HASH}")
 
-if (UA_NAMESPACE_ZERO STREQUAL "FULL" OR UA_ENABLE_ALARM_CONDITIONS)
-  set(NODESET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/ua-nodeset")
-  if (NOT EXISTS "${NODESET_DIR}/Schema/Opc.Ua.NodeSet2.xml")
-    message(STATUS "UA_NAMESPACE_ZERO is FULL. Fetching missing UA-Nodeset submodule...")
-    set(NODESET_VERSION "UA-1.05.06-2025-11-08")
-    set(NODESET_ZIP "${CMAKE_CURRENT_BINARY_DIR}/ua-nodeset.zip")
-
-    file(DOWNLOAD 
-      "https://github.com/OPCFoundation/UA-Nodeset/archive/refs/tags/${NODESET_VERSION}.zip"
-      "${NODESET_ZIP}"
-      SHOW_PROGRESS
-      STATUS DOWNLOAD_STATUS
-    )
-    list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
-    if(NOT STATUS_CODE EQUAL 0)
-      list(GET DOWNLOAD_STATUS 1 ERROR_MSG)
-      message(FATAL_ERROR "Failed to download UA-Nodeset ZIP. Error: ${ERROR_MSG}")
-    endif()
+    include(toolchain-utils)
+    message(STATUS "Downloading extra source...")
+    download_extra_source(ua-nodeset ua-nodeset.tar.gz https://github.com/OPCFoundation/UA-Nodeset/archive/refs/tags/${NODESET_VERSION}.tar.gz
+    ${NODESET_HASH})
 
     message(STATUS "Extracting UA-Nodeset...")
     execute_process(
-      COMMAND ${CMAKE_COMMAND} -E tar xf "${NODESET_ZIP}"
+      COMMAND ${CMAKE_COMMAND} -E tar xf "${CACHE_DIR}/ua-nodeset.tar.gz"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/deps"
       RESULT_VARIABLE EXTRACT_RESULT
     )
 
     if(NOT EXTRACT_RESULT EQUAL 0)
-      message(FATAL_ERROR "Failed to extract UA-Nodeset ZIP.")
+      message(FATAL_ERROR "Failed to extract UA-Nodeset!")
     endif()
     file(REMOVE_RECURSE "${NODESET_DIR}")
     file(RENAME "${CMAKE_CURRENT_SOURCE_DIR}/deps/UA-Nodeset-${NODESET_VERSION}" "${NODESET_DIR}")    
